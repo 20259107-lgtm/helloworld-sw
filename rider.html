@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Rider: Start Screen</title>
+    <style>
+        /* CSS 파일 안쪽에 import가 있어야 합니다 */
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #0a0a12;
+            color: #fff;
+            font-family: 'Orbitron', sans-serif;
+        }
+        canvas {
+            display: block;
+        }
+        /* --- UI 레이어 (게임 중 표시) --- */
+        #ui-layer {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            display: none; /* 처음엔 숨김 */
+        }
+        #score-display {
+            position: absolute;
+            top: 20px; right: 40px;
+            font-size: 32px;
+            color: #00f7ff;
+            text-shadow: 0 0 10px #00f7ff;
+        }
+        #speed-meter {
+            position: absolute;
+            bottom: 30px; left: 50%;
+            transform: translateX(-50%);
+            font-size: 40px; font-weight: bold;
+            color: #fff;
+            text-shadow: 0 0 10px #ff0055;
+        }
+        #speed-label {
+            font-size: 16px; color: #aaa;
+            display: block; text-align: center;
+        }
+        #controls-hint {
+            position: absolute;
+            bottom: 20px; left: 20px;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.5);
+            display: none; /* 처음엔 숨김 */
+        }
+
+        /* --- 클리어 메시지 --- */
+        #clear-message {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 80px; color: #ff0055;
+            text-shadow: 0 0 20px #ff0055, 0 0 40px #ff0055;
+            display: none;
+            text-align: center;
+            z-index: 50;
+        }
+        #clear-message span {
+            display: block; font-size: 30px;
+            margin-top: 20px; color: #fff;
+            text-shadow: 0 0 5px #fff;
+        }
+
+        /* --- 시작 화면 (Start Screen) --- */
+        #start-screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(10, 10, 18, 0.7); /* 배경을 약간 어둡게 */
+            z-index: 100;
+            transition: opacity 0.5s ease-in-out;
+        }
+
+        /* 세련된 광택 네온 타이틀 스타일 */
+        .neon-title {
+            font-size: 120px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 10px;
+            margin: 0;
+            position: relative;
+            
+            /* 텍스트 내부 그라데이션 (금속성 광택 느낌) */
+            background: linear-gradient(
+                to bottom,
+                #ffffff 0%,
+                #e0ffff 40%,
+                #00f7ff 50%,
+                #008cff 55%,
+                #e0ffff 70%,
+                #ffffff 100%
+            );
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            color: transparent;
+
+            /* 강력한 네온 빛 번짐 효과 (여러 겹의 그림자) */
+            filter: drop-shadow(0 0 10px rgba(0, 247, 255, 0.8))
+                    drop-shadow(0 0 30px rgba(0, 247, 255, 0.6))
+                    drop-shadow(0 0 60px rgba(0, 247, 255, 0.4));
+            
+            animation: titlePulse 2s ease-in-out infinite alternate;
+        }
+
+        /* 타이틀 하단 반사 효과 느낌 */
+        .neon-title::after {
+            content: 'RIDER';
+            position: absolute;
+            left: 0; top: 0;
+            z-index: -1;
+            background: none;
+            -webkit-text-fill-color: initial;
+            color: rgba(0, 247, 255, 0.1);
+            text-shadow: none;
+            filter: blur(10px);
+            transform: scaleY(-0.3) translateY(80%);
+            opacity: 0.4;
+        }
+
+        .start-prompt {
+            font-size: 24px;
+            margin-top: 50px;
+            color: #fff;
+            text-shadow: 0 0 10px #ff0055;
+            animation: blink 1s step-end infinite;
+        }
+
+        @keyframes titlePulse {
+            from { transform: scale(1); filter: drop-shadow(0 0 10px rgba(0, 247, 255, 0.8)) drop-shadow(0 0 30px rgba(0, 247, 255, 0.6)) drop-shadow(0 0 60px rgba(0, 247, 255, 0.4)); }
+            to { transform: scale(1.02); filter: drop-shadow(0 0 15px rgba(0, 247, 255, 1)) drop-shadow(0 0 40px rgba(0, 247, 255, 0.8)) drop-shadow(0 0 80px rgba(0, 247, 255, 0.6)); }
+        }
+        @keyframes blink { 50% { opacity: 0; } }
+
+    </style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+
+<div id="start-screen">
+    <h1 class="neon-title">RIDER</h1>
+    <p class="start-prompt">Press [ ENTER ] to Start</p>
+</div>
+
+<div id="ui-layer">
+    <div id="score-display">SCORE: <span id="score-val">0</span> / 100</div>
+    <div id="speed-meter">
+        <span id="speed-val">0</span> km/h
+        <span id="speed-label">SPEED</span>
+    </div>
+</div>
+
+<div id="clear-message">
+    MISSION COMPLETE!
+    <span>Distance Target Reached</span>
+</div>
+
+<div id="controls-hint">
+    Press [ A ] to Accelerate
+</div>
+
+<script>
+// --- 게임 설정 ---
+const CONFIG = {
+    pixelsPerPoint: 150, 
+    maxSpeedKmh: 100,
+    speedScale: 4, 
+    gravity: 0.2,
+    drivePower: 0.4,
+    colors: {
+        terrain: '#ff0055', bikeBody: '#00f7ff', wheels: '#ffffff',
+        skyTop: '#0a0a12', skyBottom: '#1a1a2e'
+    },
+    letterMarkers: [
+        { score: 20, char: 'K' }, { score: 40, char: 'O' }, { score: 60, char: 'L' },
+        { score: 80, char: 'W' }, { score: 90, char: 'U' }
+    ]
+};
+
+// --- 전역 변수 및 DOM 요소 ---
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const scoreVal = document.getElementById('score-val');
+const speedVal = document.getElementById('speed-val');
+const clearMessage = document.getElementById('clear-message');
+const startScreen = document.getElementById('start-screen');
+const uiLayer = document.getElementById('ui-layer');
+const controlsHint = document.getElementById('controls-hint');
+
+let gameState = 'start'; 
+let startXLocation = 200;
+let currentScore = 0;
+let terrainPoints = [];
+let cameraX = 0;
+
+const bike = {
+    x: 200, y: 0, width: 40, height: 20, angle: 0, vx: 0, vy: 0, va: 0, onGround: false,
+    rearWheel: { x: 0, y: 0, r: 12 }, frontWheel: { x: 0, y: 0, r: 12 },
+    updateParts: function() {
+        this.rearWheel.x = this.x - Math.cos(this.angle) * 20;
+        this.rearWheel.y = this.y - Math.sin(this.angle) * 20;
+        this.frontWheel.x = this.x + Math.cos(this.angle) * 20;
+        this.frontWheel.y = this.y + Math.sin(this.angle) * 20;
+    }
+};
+
+const keys = { a: false };
+
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    bike.y = canvas.height / 2; 
+}
+window.addEventListener('resize', resize);
+resize();
+
+// --- 입력 이벤트 핸들러 ---
+window.addEventListener('keydown', e => { 
+    if (gameState === 'start' && e.key === 'Enter') {
+        startGame();
+    }
+    if (gameState === 'playing' && e.key.toLowerCase() === 'a') {
+        keys.a = true;
+    }
+});
+window.addEventListener('keyup', e => { 
+    if (e.key.toLowerCase() === 'a') keys.a = false; 
+});
+
+function startGame() {
+    gameState = 'playing';
+    startScreen.style.opacity = '0';
+    setTimeout(() => {
+        startScreen.style.display = 'none';
+        uiLayer.style.display = 'block';
+        controlsHint.style.display = 'block';
+    }, 500);
+}
+
+function generateTerrain(startX, width) {
+    for (let x = startX; x < startX + width; x += 20) {
+        const h1 = Math.sin(x * 0.002) * 20;
+        const h2 = Math.sin(x * 0.01) * 5;
+        const baseHeight = canvas.height * 0.65;
+        terrainPoints.push({ x, y: baseHeight + h1 + h2 });
+    }
+}
+
+function getTerrainHeight(x) {
+    const worldX = x + cameraX;
+    for (let i = 0; i < terrainPoints.length - 1; i++) {
+        if (terrainPoints[i].x <= worldX && terrainPoints[i+1].x > worldX) {
+            const p1 = terrainPoints[i]; const p2 = terrainPoints[i+1];
+            const t = (worldX - p1.x) / (p2.x - p1.x);
+            return p1.y * (1 - t) + p2.y * t;
+        }
+    }
+    return canvas.height; 
+}
+
+function update() {
+    if (gameState === 'start') {
+        cameraX += 2; 
+        handleTerrainUpdates();
+        return; 
+    }
+
+    if (gameState !== 'playing') return;
+
+    if (keys.a) bike.vx += CONFIG.drivePower * Math.cos(bike.angle);
+
+    const maxVx = CONFIG.maxSpeedKmh / CONFIG.speedScale;
+    if (bike.vx > maxVx) bike.vx = maxVx;
+
+    bike.vy += CONFIG.gravity;
+    bike.x += bike.vx;
+    bike.y += bike.vy;
+    
+    if (!bike.onGround) bike.va -= bike.angle * 0.005; 
+    
+    bike.angle += bike.va;
+    bike.va *= 0.95; bike.vx *= 0.995;
+    bike.updateParts();
+
+    const rearGroundY = getTerrainHeight(bike.rearWheel.x - cameraX);
+    const frontGroundY = getTerrainHeight(bike.frontWheel.x - cameraX);
+    bike.onGround = false;
+
+    if (bike.rearWheel.y + bike.rearWheel.r > rearGroundY) {
+        bike.y = rearGroundY - bike.rearWheel.r - Math.sin(bike.angle) * 20;
+        bike.vy = 0; bike.onGround = true;
+        const groundAngle = Math.atan2(frontGroundY - rearGroundY, bike.frontWheel.x - bike.rearWheel.x);
+        bike.angle += (groundAngle - bike.angle) * 0.1; 
+    }
+     if (bike.frontWheel.y + bike.frontWheel.r > frontGroundY) {
+         if(!bike.onGround) bike.vy = 0; bike.onGround = true;
+     }
+
+    const distance = Math.max(0, bike.x - startXLocation);
+    currentScore = Math.floor(distance / CONFIG.pixelsPerPoint);
+    scoreVal.innerText = currentScore;
+    speedVal.innerText = Math.floor(Math.abs(bike.vx) * CONFIG.speedScale);
+
+    if (currentScore >= 100) {
+        currentScore = 100; scoreVal.innerText = 100;
+        gameState = 'cleared';
+        clearMessage.style.display = 'block';
+        controlsHint.style.display = 'none';
+    }
+
+    const targetCameraX = bike.x - canvas.width / 3;
+    cameraX += (targetCameraX - cameraX) * 0.1; 
+    handleTerrainUpdates();
+
+    if (Math.abs(bike.angle) > Math.PI / 1.5) {
+         bike.y -= 50; bike.angle = 0; bike.va = 0; bike.vx *= 0.5;
+    }
+}
+
+function handleTerrainUpdates() {
+    if (terrainPoints[terrainPoints.length - 1].x < cameraX + canvas.width * 1.5) {
+        generateTerrain(terrainPoints[terrainPoints.length - 1].x, canvas.width);
+    }
+    if (terrainPoints[0].x < cameraX - canvas.width) {
+        terrainPoints.shift();
+    }
+}
+
+function draw() {
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    gradient.addColorStop(0, CONFIG.colors.skyTop);
+    gradient.addColorStop(1, CONFIG.colors.skyBottom);
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.save();
+    ctx.translate(-cameraX, 0);
+
+    ctx.font = "bold 30px Orbitron";
+    ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    CONFIG.letterMarkers.forEach(marker => {
+        const markerX = startXLocation + (marker.score * CONFIG.pixelsPerPoint);
+        if (markerX > cameraX - 100 && markerX < cameraX + canvas.width + 100) {
+            ctx.save();
+            ctx.shadowColor = "#00f7ff"; ctx.shadowBlur = 10;
+            ctx.fillStyle = "#ffffff";
+            ctx.fillText(marker.char, markerX, canvas.height / 2 - 100);
+            ctx.restore();
+        }
+    });
+
+    ctx.beginPath();
+    ctx.moveTo(terrainPoints[0].x, terrainPoints[0].y);
+    for (let i = 1; i < terrainPoints.length; i++) {
+        ctx.lineTo(terrainPoints[i].x, terrainPoints[i].y);
+    }
+    ctx.lineTo(cameraX + canvas.width, canvas.height);
+    ctx.lineTo(cameraX, canvas.height);
+    ctx.closePath();
+    ctx.strokeStyle = CONFIG.colors.terrain; ctx.lineWidth = 3; ctx.stroke();
+    ctx.fillStyle = 'rgba(255, 0, 85, 0.1)'; ctx.fill();
+    ctx.shadowColor = CONFIG.colors.terrain; ctx.shadowBlur = 20; ctx.stroke(); ctx.shadowBlur = 0;
+
+    if (gameState !== 'start') {
+        ctx.save();
+        ctx.translate(bike.x, bike.y);
+        ctx.rotate(bike.angle);
+        ctx.strokeStyle = CONFIG.colors.bikeBody; ctx.lineWidth = 4;
+        ctx.shadowColor = CONFIG.colors.bikeBody; ctx.shadowBlur = 15;
+        ctx.beginPath();
+        ctx.moveTo(-20, 0); ctx.lineTo(20, 0); 
+        ctx.moveTo(-10, -15); ctx.lineTo(0, 0); 
+        ctx.moveTo(10, -15); ctx.lineTo(0, 0); 
+        ctx.stroke(); ctx.shadowBlur = 0;
+        ctx.fillStyle = CONFIG.colors.wheels; ctx.shadowColor = '#fff'; ctx.shadowBlur = 10;
+        ctx.beginPath(); ctx.arc(-20, 0, bike.rearWheel.r, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(20, 0, bike.frontWheel.r, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.restore(); 
+    }
+
+    ctx.restore(); 
+}
+
+function gameLoop() {
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+}
+
+terrainPoints.push({ x: -canvas.width, y: canvas.height * 0.65 }); 
+generateTerrain(-canvas.width + 20, canvas.width * 3); 
+requestAnimationFrame(gameLoop);
+
+</script>
+</body>
+</html>
