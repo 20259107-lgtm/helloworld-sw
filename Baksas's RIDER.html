@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Rider: Smooth & Tricks</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #0a0a12;
+            color: #fff;
+            font-family: 'Orbitron', sans-serif;
+        }
+        canvas {
+            display: block;
+        }
+        #ui-layer {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            display: none;
+        }
+        
+        #collection-display {
+            position: absolute;
+            top: 20px; left: 20px;
+            font-size: 40px;
+            font-weight: bold;
+            display: flex;
+            gap: 10px;
+        }
+        .collected-char {
+            color: #ff0055;
+            text-shadow: 0 0 10px #ff0055, 0 0 20px #fff;
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes popIn {
+            0% { transform: scale(0); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        #score-display {
+            position: absolute;
+            top: 20px; right: 40px;
+            font-size: 32px;
+            color: #00f7ff;
+            text-shadow: 0 0 10px #00f7ff;
+        }
+        #speed-meter {
+            position: absolute;
+            bottom: 30px; left: 50%;
+            transform: translateX(-50%);
+            font-size: 40px; font-weight: bold;
+            color: #fff;
+            text-shadow: 0 0 10px #ff0055;
+        }
+        #speed-label {
+            font-size: 16px; color: #aaa;
+            display: block; text-align: center;
+        }
+        #controls-hint {
+            position: absolute;
+            bottom: 20px; left: 20px;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.5);
+            display: none;
+        }
+        /* 재시작 힌트 추가 */
+        #restart-hint {
+            font-size: 20px;
+            margin-top: 15px;
+            color: #00f7ff;
+            animation: blink 1s infinite;
+            display: none; /* 클리어 시 표시 */
+        }
+
+        #clear-message {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 80px; color: #ff0055;
+            text-shadow: 0 0 20px #ff0055, 0 0 40px #ff0055;
+            display: none;
+            text-align: center;
+            z-index: 50;
+        }
+        #clear-message span {
+            display: block; font-size: 30px;
+            margin-top: 20px; color: #fff;
+            text-shadow: 0 0 5px #fff;
+        }
+
+        #start-screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(10, 10, 18, 0.7);
+            z-index: 100;
+            transition: opacity 0.5s ease-in-out;
+        }
+
+        .neon-title {
+            font-size: 120px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 10px;
+            margin: 0;
+            position: relative;
+            background: linear-gradient(to bottom, #ffffff 0%, #e0ffff 40%, #00f7ff 50%, #008cff 55%, #e0ffff 70%, #ffffff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            color: transparent;
+            filter: drop-shadow(0 0 10px rgba(0, 247, 255, 0.8)) drop-shadow(0 0 30px rgba(0, 247, 255, 0.6)) drop-shadow(0 0 60px rgba(0, 247, 255, 0.4));
+            animation: titlePulse 2s ease-in-out infinite alternate;
+        }
+
+        .neon-title::after {
+            content: 'RIDER';
+            position: absolute; left: 0; top: 0; z-index: -1;
+            background: none; -webkit-text-fill-color: initial;
+            color: rgba(0, 247, 255, 0.1);
+            text-shadow: none; filter: blur(10px);
+            transform: scaleY(-0.3) translateY(80%); opacity: 0.4;
+        }
+
+        .start-prompt {
+            font-size: 24px; margin-top: 50px; color: #fff;
+            text-shadow: 0 0 10px #ff0055; animation: blink 1s step-end infinite;
+        }
+
+        @keyframes titlePulse {
+            from { transform: scale(1); filter: drop-shadow(0 0 10px rgba(0, 247, 255, 0.8)) drop-shadow(0 0 30px rgba(0, 247, 255, 0.6)) drop-shadow(0 0 60px rgba(0, 247, 255, 0.4)); }
+            to { transform: scale(1.02); filter: drop-shadow(0 0 15px rgba(0, 247, 255, 1)) drop-shadow(0 0 40px rgba(0, 247, 255, 0.8)) drop-shadow(0 0 80px rgba(0, 247, 255, 0.6)); }
+        }
+        @keyframes blink { 50% { opacity: 0; } }
+
+    </style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+
+<div id="start-screen">
+    <h1 class="neon-title">Baksas's RIDER</h1>
+    <p class="start-prompt">Press [ ENTER ] to Start</p>
+</div>
+
+<div id="ui-layer">
+    <div id="collection-display"></div> 
+    <div id="score-display">SCORE: <span id="score-val">0</span> / 100</div>
+    <div id="speed-meter">
+        <span id="speed-val">0</span> km/h
+        <span id="speed-label">SPEED</span>
+    </div>
+</div>
+
+<div id="clear-message">
+    MISSION COMPLETE!
+    <span>Distance Target Reached</span>
+    <div id="restart-hint">Press [ SPACE ] to Play Again</div>
+</div>
+
+<div id="controls-hint">
+    Press [ A ] to Accelerate
+</div>
+
+<script>
+// --- 게임 설정 ---
+const CONFIG = {
+    pixelsPerPoint: 150, 
+    maxSpeedKmh: 50,  // 속도 하향 100 -> 50
+    speedScale: 4, 
+    gravity: 0.2,
+    drivePower: 0.4,
+    colors: {
+        terrain: '#ff0055', bikeBody: '#00f7ff', wheels: '#ffffff',
+        skyTop: '#0a0a12', skyBottom: '#1a1a2e'
+    },
+    letterMarkers: [
+        { score: 20, char: 'K' }, { score: 40, char: 'O' }, { score: 60, char: 'L' },
+        { score: 80, char: 'W' }, { score: 90, char: 'U' }
+    ]
+};
+
+// --- 전역 변수 및 DOM 요소 ---
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const scoreVal = document.getElementById('score-val');
+const speedVal = document.getElementById('speed-val');
+const clearMessage = document.getElementById('clear-message');
+const restartHint = document.getElementById('restart-hint');
+const startScreen = document.getElementById('start-screen');
+const uiLayer = document.getElementById('ui-layer');
+const controlsHint = document.getElementById('controls-hint');
+const collectionDisplay = document.getElementById('collection-display');
+
+let gameState = 'start'; 
+let startXLocation = 200;
+let currentScore = 0;
+let terrainPoints = [];
+let cameraX = 0;
+let activeLetters = []; 
+
+// 바이크 초기값 저장용
+const initialBikeState = {
+    x: 200, y: 0, vx: 0, vy: 0, va: 0, angle: 0
+};
+
+const bike = {
+    x: 200, y: 0, width: 40, height: 20, angle: 0, vx: 0, vy: 0, va: 0, onGround: false,
+    rearWheel: { x: 0, y: 0, r: 12 }, frontWheel: { x: 0, y: 0, r: 12 },
+    updateParts: function() {
+        this.rearWheel.x = this.x - Math.cos(this.angle) * 20;
+        this.rearWheel.y = this.y - Math.sin(this.angle) * 20;
+        this.frontWheel.x = this.x + Math.cos(this.angle) * 20;
+        this.frontWheel.y = this.y + Math.sin(this.angle) * 20;
+    },
+    reset: function() {
+        this.x = initialBikeState.x;
+        this.y = canvas.height / 2; // 안전하게 공중에서 시작
+        this.vx = 0; this.vy = 0; this.va = 0; this.angle = 0;
+        this.updateParts();
+    }
+};
+
+const keys = { a: false };
+
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    if (gameState === 'start') bike.y = canvas.height / 2;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// --- 입력 이벤트 ---
+window.addEventListener('keydown', e => { 
+    if (gameState === 'start' && e.key === 'Enter') {
+        startGame();
+    }
+    if (gameState === 'cleared' && e.code === 'Space') { // 스페이스바 재시작
+        resetGame();
+    }
+    if (gameState === 'playing' && e.key.toLowerCase() === 'a') {
+        keys.a = true;
+    }
+});
+window.addEventListener('keyup', e => { 
+    if (e.key.toLowerCase() === 'a') keys.a = false; 
+});
+
+function startGame() {
+    gameState = 'playing';
+    startScreen.style.opacity = '0';
+    setTimeout(() => {
+        startScreen.style.display = 'none';
+        uiLayer.style.display = 'block';
+        controlsHint.style.display = 'block';
+    }, 500);
+}
+
+function resetGame() {
+    gameState = 'playing';
+    currentScore = 0;
+    scoreVal.innerText = '0';
+    collectionDisplay.innerHTML = ''; // 수집 아이템 초기화
+    activeLetters = []; // 필드 아이템 초기화
+    
+    // UI 초기화
+    clearMessage.style.display = 'none';
+    restartHint.style.display = 'none';
+    controlsHint.style.display = 'block';
+
+    // 맵 및 바이크 초기화
+    terrainPoints = [];
+    cameraX = 0;
+    bike.reset();
+    
+    // 초기 지형 생성
+    terrainPoints.push({ x: -canvas.width, y: canvas.height * 0.65 });
+    generateTerrain(-canvas.width + 20, canvas.width * 3);
+}
+
+// --- 지형 생성 로직 (부드러운 곡선 & 쉬운 기교) ---
+let terrainState = 'FLAT'; 
+let terrainCounter = 0;
+
+function generateTerrain(startX, width) {
+    for (let x = startX; x < startX + width; x += 20) {
+        
+        terrainCounter++;
+        // 코스 변경 주기
+        if (terrainCounter > 40) { // 조금 더 길게 유지
+            if (Math.random() < 0.35) {
+                const rand = Math.random();
+                if (rand < 0.4) terrainState = 'FLAT';     
+                else if (rand < 0.7) terrainState = 'HILL'; 
+                else terrainState = 'JUMP';                
+            }
+            terrainCounter = 0;
+        }
+
+        const baseHeight = canvas.height * 0.65;
+        let height = baseHeight;
+
+        // 부드러운 연결을 위해 사인파의 주기를 길게(0.01 -> 0.005 등) 하고 진폭 조정
+        if (terrainState === 'FLAT') {
+            // 아주 완만한 평지
+            height = baseHeight + Math.sin(x * 0.005) * 10; 
+        } else if (terrainState === 'HILL') {
+            // 부드럽게 타고 올라가는 언덕 (주기를 길게 하여 경사 완화)
+            height = baseHeight + Math.sin(x * 0.003) * 60;
+        } else if (terrainState === 'JUMP') {
+            // 기교 코스: 
+            // 1. 큰 도약을 위한 램프 (사인파의 절반만 사용하거나 긴 주기 사용)
+            // 2. 착지 지점이 멀리 있도록 설계
+            // 여기서는 단순하게 긴 주기의 큰 파도를 만들어 자연스럽게 점프하게 유도
+            height = baseHeight + Math.sin(x * 0.008) * 90;
+        }
+
+        // 지형 끊김 방지 및 부드러움 추가 (이전 점과의 평균화 - Low Pass Filter 효과)
+        if (terrainPoints.length > 0) {
+            const prevY = terrainPoints[terrainPoints.length - 1].y;
+            height = prevY * 0.6 + height * 0.4; // 이전 높이 비중을 높여 부드럽게
+        }
+
+        terrainPoints.push({ x, y: height });
+
+        // --- 글자(아이템) 배치 ---
+        CONFIG.letterMarkers.forEach(marker => {
+            const targetX = startXLocation + (marker.score * CONFIG.pixelsPerPoint);
+            if (x >= targetX && x < targetX + 20) {
+                const alreadyExists = activeLetters.some(l => l.char === marker.char);
+                if (!alreadyExists) {
+                    activeLetters.push({
+                        x: x,
+                        y: height - 50, 
+                        char: marker.char,
+                        collected: false
+                    });
+                }
+            }
+        });
+    }
+}
+
+function getTerrainHeight(x) {
+    const worldX = x + cameraX;
+    for (let i = 0; i < terrainPoints.length - 1; i++) {
+        if (terrainPoints[i].x <= worldX && terrainPoints[i+1].x > worldX) {
+            const p1 = terrainPoints[i]; const p2 = terrainPoints[i+1];
+            const t = (worldX - p1.x) / (p2.x - p1.x);
+            return p1.y * (1 - t) + p2.y * t;
+        }
+    }
+    return canvas.height; 
+}
+
+function update() {
+    if (gameState === 'start') {
+        cameraX += 2; 
+        handleTerrainUpdates();
+        return; 
+    }
+
+    if (gameState !== 'playing') return;
+
+    if (keys.a) bike.vx += CONFIG.drivePower * Math.cos(bike.angle);
+
+    const maxVx = CONFIG.maxSpeedKmh / CONFIG.speedScale;
+    if (bike.vx > maxVx) bike.vx = maxVx;
+
+    bike.vy += CONFIG.gravity;
+    bike.x += bike.vx;
+    bike.y += bike.vy;
+    
+    // 공중 자세 제어 (복원력 강화하여 더 쉽게)
+    if (!bike.onGround) {
+        bike.va -= bike.angle * 0.01; // 복원력 증가
+    }
+    
+    bike.angle += bike.va;
+    bike.va *= 0.95; bike.vx *= 0.995;
+    bike.updateParts();
+
+    const rearGroundY = getTerrainHeight(bike.rearWheel.x - cameraX);
+    const frontGroundY = getTerrainHeight(bike.frontWheel.x - cameraX);
+    bike.onGround = false;
+
+    // 부드러운 충돌 처리
+    if (bike.rearWheel.y + bike.rearWheel.r > rearGroundY) {
+        bike.y = rearGroundY - bike.rearWheel.r - Math.sin(bike.angle) * 20;
+        bike.vy = 0; bike.onGround = true;
+        const groundAngle = Math.atan2(frontGroundY - rearGroundY, bike.frontWheel.x - bike.rearWheel.x);
+        // 땅에 붙을 때 각도 변화를 더 부드럽게 (0.1 -> 0.08)
+        bike.angle += (groundAngle - bike.angle) * 0.08; 
+    }
+     if (bike.frontWheel.y + bike.frontWheel.r > frontGroundY) {
+         if(!bike.onGround) bike.vy = 0; bike.onGround = true;
+     }
+
+    // 아이템 획득
+    activeLetters.forEach(letter => {
+        if (letter.collected) return;
+        const dx = bike.x - letter.x;
+        const dy = bike.y - letter.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < 60) {
+            letter.collected = true;
+            addLetterToUI(letter.char);
+        }
+    });
+
+    const distance = Math.max(0, bike.x - startXLocation);
+    currentScore = Math.floor(distance / CONFIG.pixelsPerPoint);
+    scoreVal.innerText = currentScore;
+    speedVal.innerText = Math.floor(Math.abs(bike.vx) * CONFIG.speedScale);
+
+    if (currentScore >= 100) {
+        currentScore = 100; scoreVal.innerText = 100;
+        gameState = 'cleared';
+        clearMessage.style.display = 'block';
+        restartHint.style.display = 'block'; // 재시작 힌트 표시
+        controlsHint.style.display = 'none';
+    }
+
+    const targetCameraX = bike.x - canvas.width / 3;
+    cameraX += (targetCameraX - cameraX) * 0.1; 
+    handleTerrainUpdates();
+
+    // 전복 리셋 조건 완화 (더 잘 버티게)
+    if (Math.abs(bike.angle) > Math.PI / 1.3) {
+         bike.y -= 50; bike.angle = 0; bike.va = 0; bike.vx *= 0.5;
+    }
+}
+
+function addLetterToUI(char) {
+    const span = document.createElement('span');
+    span.innerText = char;
+    span.className = 'collected-char';
+    collectionDisplay.appendChild(span);
+}
+
+function handleTerrainUpdates() {
+    if (terrainPoints[terrainPoints.length - 1].x < cameraX + canvas.width * 1.5) {
+        generateTerrain(terrainPoints[terrainPoints.length - 1].x, canvas.width);
+    }
+    if (terrainPoints[0].x < cameraX - canvas.width) {
+        terrainPoints.shift();
+    }
+}
+
+function draw() {
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    gradient.addColorStop(0, CONFIG.colors.skyTop);
+    gradient.addColorStop(1, CONFIG.colors.skyBottom);
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.save();
+    ctx.translate(-cameraX, 0);
+
+    // 아이템 그리기
+    ctx.font = "bold 40px Orbitron";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    
+    activeLetters.forEach(letter => {
+        if (letter.collected) return;
+        if (letter.x > cameraX - 100 && letter.x < cameraX + canvas.width + 100) {
+            ctx.save();
+            const floatY = Math.sin(Date.now() * 0.005) * 10; 
+            ctx.shadowColor = "#ff0055"; ctx.shadowBlur = 20;
+            ctx.fillStyle = "#ffffff";
+            ctx.fillText(letter.char, letter.x, letter.y + floatY);
+            ctx.beginPath();
+            ctx.arc(letter.x, letter.y + floatY, 30, 0, Math.PI*2);
+            ctx.strokeStyle = "rgba(255, 0, 85, 0.5)"; ctx.lineWidth = 2; ctx.stroke();
+            ctx.restore();
+        }
+    });
+
+    // 지형 그리기
+    ctx.beginPath();
+    ctx.moveTo(terrainPoints[0].x, terrainPoints[0].y);
+    for (let i = 1; i < terrainPoints.length; i++) {
+        ctx.lineTo(terrainPoints[i].x, terrainPoints[i].y);
+    }
+    ctx.lineTo(cameraX + canvas.width, canvas.height);
+    ctx.lineTo(cameraX, canvas.height);
+    ctx.closePath();
+    ctx.strokeStyle = CONFIG.colors.terrain; ctx.lineWidth = 3; ctx.stroke();
+    ctx.fillStyle = 'rgba(255, 0, 85, 0.1)'; ctx.fill();
+    ctx.shadowColor = CONFIG.colors.terrain; ctx.shadowBlur = 20; ctx.stroke(); ctx.shadowBlur = 0;
+
+    // 바이크 그리기
+    if (gameState !== 'start') {
+        ctx.save();
+        ctx.translate(bike.x, bike.y);
+        ctx.rotate(bike.angle);
+        ctx.strokeStyle = CONFIG.colors.bikeBody; ctx.lineWidth = 4;
+        ctx.shadowColor = CONFIG.colors.bikeBody; ctx.shadowBlur = 15;
+        ctx.beginPath();
+        ctx.moveTo(-20, 0); ctx.lineTo(20, 0); 
+        ctx.moveTo(-10, -15); ctx.lineTo(0, 0); 
+        ctx.moveTo(10, -15); ctx.lineTo(0, 0); 
+        ctx.stroke(); ctx.shadowBlur = 0;
+        ctx.fillStyle = CONFIG.colors.wheels; ctx.shadowColor = '#fff'; ctx.shadowBlur = 10;
+        ctx.beginPath(); ctx.arc(-20, 0, bike.rearWheel.r, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(20, 0, bike.frontWheel.r, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.restore(); 
+    }
+
+    ctx.restore(); 
+}
+
+function gameLoop() {
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+}
+
+// 초기화
+terrainPoints.push({ x: -canvas.width, y: canvas.height * 0.65 }); 
+generateTerrain(-canvas.width + 20, canvas.width * 3); 
+requestAnimationFrame(gameLoop);
+
+</script>
+</body>
+</html>
